@@ -5,6 +5,7 @@ from flask import render_template
 import pprint
 import os
 import json
+import datetime
 
 app = Flask(__name__)
 
@@ -12,6 +13,8 @@ app.debug = True #Change this to False for production
 
 app.secret_key = os.environ['SECRET_KEY'] #used to sign session cookies
 oauth = OAuth(app)
+
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 #Set up GitHub as OAuth provider
 github = oauth.remote_app(
@@ -35,17 +38,38 @@ def inject_logged_in():
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    if "user_data" not in session:
+        return redirect(url_for(".login"))
+    
+    with open("static/posts.json") as inFile:
+        posts = json.load(inFile)
+        
+    print(posts)
+      
+    return render_template('home.html', posts=posts)
 
 @app.route('/posted', methods=['POST'])
 def post():
-    #This function should add the new post to the JSON file of posts and then render home.html and display the posts.  
-    #Every post should include the username of the poster and text of the post. 
+    with open("static/posts.json") as inFile:
+        posts = json.load(inFile)
+        
+    msg = request.form['message']
+    sender = session["user_data"]["login"]
+    theTime = datetime.datetime.now().strftime("%m/%d::%H:%M:%S")
+    
+    theDict = {"message":msg, "sender":sender, "time":theTime}
+    posts.append(theDict)
+    
+    with open("static/posts.json", 'w') as outFile:
+        json.dump(theDict, outFile)
+        
+    return redirect(url_for(".home"))
+    
 
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
 def login():   
-    return github.authorize(callback=url_for('authorized', _external=True, _scheme='https')) #callback URL must match the pre-configured callback URL
+    return github.authorize(callback=url_for('authorized', _external=True, _scheme='http')) #callback URL must match the pre-configured callback URL
 
 @app.route('/logout')
 def logout():
@@ -57,7 +81,8 @@ def authorized():
     resp = github.authorized_response()
     if resp is None:
         session.clear()
-        message = 'Access denied: reason=' + request.args['error'] + ' error=' + request.args['error_description'] + ' full=' + pprint.pformat(request.args)      
+        message = 'Access denied: reason=' + request.args['error'] + ' error=' + request.args['error_description'] + ' full=' + pprint.pformat(request.args)
+        return render_template('message.html', message=message)        
     else:
         try:
             session['github_token'] = (resp['access_token'], '') #save the token to prove that the user logged in
@@ -67,7 +92,8 @@ def authorized():
             session.clear()
             print(inst)
             message='Unable to login, please try again.  '
-    return render_template('message.html', message=message)
+            return render_template('message.html', message=message) 
+    return redirect(url_for(".home"))
 
 #the tokengetter is automatically called to check who is logged in.
 @github.tokengetter
