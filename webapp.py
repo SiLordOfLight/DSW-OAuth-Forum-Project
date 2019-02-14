@@ -13,8 +13,9 @@ app.debug = True #Change this to False for production
 
 app.secret_key = os.environ['SECRET_KEY'] #used to sign session cookies
 oauth = OAuth(app)
-
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+admins = os.environ['admins']
 
 #Set up GitHub as OAuth provider
 github = oauth.remote_app(
@@ -25,12 +26,37 @@ github = oauth.remote_app(
     base_url='https://api.github.com/',
     request_token_url=None,
     access_token_method='POST',
-    access_token_url='https://github.com/login/oauth/access_token',  
+    access_token_url='https://github.com/login/oauth/access_token',
     authorize_url='https://github.com/login/oauth/authorize' #URL for github's OAuth login
 )
 
 #use a JSON file to store the past posts.  A global list variable doesn't work when handling multiple requests coming in and being handled on different threads
 #Create and set a global variable for the name of you JSON file here.  The file will be created on Heroku, so you don't need to make it in GitHub
+
+def require_login():
+    if "user_data" not in session:
+        return True
+    return False
+
+def get_post(id, posts):
+    for p in posts:
+        # print(type(p['id']))
+        if p['id'] == int(id): return p
+
+    return None
+
+def get_children(parentID, posts):
+    out = []
+
+    for p in posts:
+        if 'parents' not in p: continue
+        if int(parentID) in p['parents']:
+            out.append(p)
+
+    return out
+
+def generateID(key1, key2):
+    return hash(key1 + key2)
 
 @app.context_processor
 def inject_logged_in():
@@ -38,37 +64,107 @@ def inject_logged_in():
 
 @app.route('/')
 def home():
-    if "user_data" not in session:
-        return redirect(url_for(".login"))
-    
+    if require_login(): return redirect(url_for(".login"))
+
+    session["user_type"] = "admin" if session['user_data']['login'] in admins else "regular"
+
     with open("static/posts.json") as inFile:
         posts = json.load(inFile)
-        
-    print(posts)
-      
-    return render_template('home.html', posts=posts)
+
+    del posts[0]
+    # print(posts)
+
+    return render_template('home.html', posts=posts, reply_id='x', edit_id="x")
 
 @app.route('/posted', methods=['POST'])
 def post():
+    if require_login(): return redirect(url_for(".login"))
+
     with open("static/posts.json") as inFile:
         posts = json.load(inFile)
-        
+
     msg = request.form['message']
     sender = session["user_data"]["login"]
-    theTime = datetime.datetime.now().strftime("%m/%d::%H:%M:%S")
-    
-    theDict = {"message":msg, "sender":sender, "time":theTime}
-    posts.append(theDict)
-    
+    theTime = datetime.datetime.now().strftime("%m/%d %H:%M:%S")
+
+    if request.form['replyID'] == 'x' and request.form['editID'] == 'x':
+        theDict = {"message":msg, "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": []}
+        posts.append(theDict)
+
+    elif not request.form['editID'] == 'x':
+        oldPost = get_post(request.form['editID'], posts)
+        ind = posts.index(oldPost)
+        oldPost["message"] = msg
+        oldPost["editTime"] = "Edited: \n%s" % theTime
+        posts[ind] = oldPost
+
+    else:
+        print(request.form['replyID'])
+        parent = get_post(request.form['replyID'],posts)
+        other_parents = parent['parents']
+        other_parents.append(parent['id'])
+        new_id = generateID(sender, theTime)
+        repDict = {"message":msg, "sender":sender, "time":theTime, "id":new_id, 'level':parent['level']+1, "parents": other_parents}
+        new_index = posts.index(parent) + len(get_children(parent['id'],posts))
+        posts.insert(new_index,repDict)
+
     with open("static/posts.json", 'w') as outFile:
-        json.dump(theDict, outFile)
-        
+        json.dump(posts, outFile)
+
     return redirect(url_for(".home"))
-    
+
+@app.route('/deletePost', methods=['POST'])
+def deletePost():
+    if require_login(): return redirect(url_for(".login"))
+
+    with open("static/posts.json") as inFile:
+        posts = json.load(inFile)
+
+    del posts[0]
+
+    msg = request.form['msgID']
+
+    post = get_post(msg, posts)
+    posts.remove(post)
+
+    for p in get_children(msg, posts):
+        posts.remove(p)
+
+    posts.insert(0, {"is_test":True, "id":0})
+
+    with open("static/posts.json", 'w') as outFile:
+        json.dump(posts, outFile)
+
+    return redirect(url_for(".home"))
+
+@app.route('/editPost', methods=['POST'])
+def editPost():
+    if require_login(): return redirect(url_for(".login"))
+
+    with open("static/posts.json") as inFile:
+        posts = json.load(inFile)
+
+    msg = request.form['msgID']
+    message = get_post(msg, posts)["message"]
+
+    del posts[0]
+
+    return render_template('home.html', posts=posts, edit_id=msg, message=message)
+
+@app.route('/replyPost', methods=['POST'])
+def replyPost():
+    if require_login(): return redirect(url_for(".login"))
+
+    with open("static/posts.json") as inFile:
+        posts = json.load(inFile)
+
+    del posts[0]
+
+    return render_template('home.html', posts=posts, reply_id=request.form['msgID'])
 
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
-def login():   
+def login():
     return github.authorize(callback=url_for('authorized', _external=True, _scheme='http')) #callback URL must match the pre-configured callback URL
 
 @app.route('/logout')
@@ -82,7 +178,7 @@ def authorized():
     if resp is None:
         session.clear()
         message = 'Access denied: reason=' + request.args['error'] + ' error=' + request.args['error_description'] + ' full=' + pprint.pformat(request.args)
-        return render_template('message.html', message=message)        
+        return render_template('message.html', message=message)
     else:
         try:
             session['github_token'] = (resp['access_token'], '') #save the token to prove that the user logged in
@@ -92,7 +188,7 @@ def authorized():
             session.clear()
             print(inst)
             message='Unable to login, please try again.  '
-            return render_template('message.html', message=message) 
+            return render_template('message.html', message=message)
     return redirect(url_for(".home"))
 
 #the tokengetter is automatically called to check who is logged in.
@@ -102,4 +198,4 @@ def get_github_oauth_token():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True, host="localhost", port=5000)
