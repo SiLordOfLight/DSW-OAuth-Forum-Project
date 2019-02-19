@@ -37,17 +37,22 @@
     {% for post in posts %}
     <div class="row post-msg" style="
             margin-top: 5px;
-            background-color: rgb(55,131,246);
+            background-color: {%if post["bad_guy"] %}rgb(255,0,0){%else%}rgb(55,131,246){%endif%};
             border-radius: 10px;
             padding: 0px;
             margin-left: {{post['level'] * 20}}px;
-            color: white">
+            color: {%if post["bad_guy"]%} black {%else%} white {%endif%}">
 
         <div class="col-lg-auto" style="
                 border-right: dashed white 1px;
                 padding-top: 5px;
                 padding-bottom: 5px;">
             <h4>{{post['sender']}}</h4>
+            {% if post["bad_guy"] %}
+                <h6>Spawn of Satan</h6>
+            {% else %}
+                <h6>Angel of Light</h6>
+            {%endif%}
         	<h6>{{post['time']}}</h6>
             {% if "editTime" in post %}
                 <h6>{{post['editTime']}}</h6>

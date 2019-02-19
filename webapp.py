@@ -1,6 +1,7 @@
 from flask import Flask, redirect, url_for, session, request, jsonify, Markup
 from flask_oauthlib.client import OAuth
 from flask import render_template
+import myEncode as me
 
 import pprint
 import os
@@ -68,13 +69,18 @@ def home():
 
     session["user_type"] = "admin" if session['user_data']['login'] in admins else "regular"
 
+    warned = False
+
+    if user_banned(session['user_data']['login']) == "B":
+        redirect("https://answers.yahoo.com/question/index?qid=20190217173954AAszYW0")
+
     with open("static/posts.json") as inFile:
         posts = json.load(inFile)
 
     del posts[0]
     # print(posts)
 
-    return render_template('home.html', posts=posts, reply_id='x', edit_id="x")
+    return render_template('home.html', posts=posts, reply_id='x', edit_id="x", warned=warned)
 
 @app.route('/posted', methods=['POST'])
 def post():
@@ -88,7 +94,21 @@ def post():
     theTime = datetime.datetime.now().strftime("%m/%d %H:%M:%S")
 
     if request.form['replyID'] == 'x' and request.form['editID'] == 'x':
-        theDict = {"message":msg, "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": []}
+        if user_banned(session['user_data']['login']) == "W":
+            theDict = {"message":msg, "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":True}
+        else:
+            theDict = {"message":msg, "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":False}
+
+        with open("static/badWords.json") as fitfile:
+            raw = fitfile.read()
+            decd = me.decode(raw)
+            bad_words = json.loads(decd)
+
+        for word in msg.split(" "):
+            if word.lower() in bad_words:
+                theDict = {"message":"<<This user is a horrible person and shall henceforth be known as \"Spawn of Satan\">>", "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":True}
+                ban_user(sender)
+
         posts.append(theDict)
 
     elif not request.form['editID'] == 'x':
@@ -104,7 +124,7 @@ def post():
         other_parents = parent['parents']
         other_parents.append(parent['id'])
         new_id = generateID(sender, theTime)
-        repDict = {"message":msg, "sender":sender, "time":theTime, "id":new_id, 'level':parent['level']+1, "parents": other_parents}
+        repDict = {"message":msg, "sender":sender, "time":theTime, "id":new_id, 'level':parent['level']+1, "parents": other_parents, "bad_guy":False}
         new_index = posts.index(parent) + len(get_children(parent['id'],posts))
         posts.insert(new_index,repDict)
 
@@ -149,7 +169,7 @@ def editPost():
 
     del posts[0]
 
-    return render_template('home.html', posts=posts, edit_id=msg, message=message)
+    return render_template('home.html', posts=posts, edit_id=msg, reply_id='x', message=message)
 
 @app.route('/replyPost', methods=['POST'])
 def replyPost():
@@ -160,7 +180,7 @@ def replyPost():
 
     del posts[0]
 
-    return render_template('home.html', posts=posts, reply_id=request.form['msgID'])
+    return render_template('home.html', posts=posts, reply_id=request.form['msgID'], edit_id='x')
 
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
@@ -196,6 +216,29 @@ def authorized():
 def get_github_oauth_token():
     return session.get('github_token')
 
+def user_banned(user):
+    with open("banned.json") as banFile:
+        banned = json.load(banFile)
+
+    for ban in banned:
+        if ban["username"] == user and ban["ban-level"] == 2: return "B"
+        elif ban["username"] == user and ban["ban-level"] == 1: return "W"
+
+    return "A"
+
+def ban_user(user):
+    with open("banned.json") as banFile:
+        banned = json.load(banFile)
+
+    for ban in banned:
+        if ban["username"] == user:
+            ban["ban-level"] = 2
+            return
+
+    banned.append({"username":user, "ban-level":1, "ban-time":datetime.datetime.now().strftime("%m/%d %H:%M:%S")})
+
+    with open("banned.json", 'w') as banFile2:
+        json.dump(banned,banFile2)
 
 if __name__ == '__main__':
     app.run(debug=True, host="localhost", port=5000)
