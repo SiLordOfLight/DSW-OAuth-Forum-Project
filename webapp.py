@@ -217,7 +217,7 @@ def get_github_oauth_token():
     return session.get('github_token')
 
 def user_banned(user):
-    with open("banned.json") as banFile:
+    with open("static/banned.json") as banFile:
         banned = json.load(banFile)
 
     for ban in banned:
@@ -227,7 +227,7 @@ def user_banned(user):
     return "A"
 
 def ban_user(user):
-    with open("banned.json") as banFile:
+    with open("static/banned.json") as banFile:
         banned = json.load(banFile)
 
     for ban in banned:
@@ -237,7 +237,7 @@ def ban_user(user):
 
     banned.append({"username":user, "ban-level":1, "ban-time":datetime.datetime.now().strftime("%m/%d %H:%M:%S")})
 
-    with open("banned.json", 'w') as banFile2:
+    with open("static/banned.json", 'w') as banFile2:
         json.dump(banned,banFile2)
 
 if __name__ == '__main__':
