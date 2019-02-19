@@ -3,7 +3,7 @@ def encode(inp):
     for c in inp:
         ci = ord(c)
 
-        ci+=20
+        ci-=10
         co = chr(ci)
         out += co
 
@@ -13,7 +13,7 @@ def decode(inp):
     out = ""
     for c in inp:
         ci = ord(c)
-        ci -= 20
+        ci += 10
         co = chr(ci)
         out += co
 
