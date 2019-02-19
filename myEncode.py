@@ -1,7 +1,6 @@
-
-def encode(in):
+def encode(inp):
     out = ""
-    for c in in:
+    for c in inp:
         ci = ord(c)
 
         ci+=20
@@ -10,9 +9,9 @@ def encode(in):
 
     return out
 
-def decode(in):
+def decode(inp):
     out = ""
-    for c in in:
+    for c in inp:
         ci = ord(c)
         ci -= 20
         co = chr(ci)
