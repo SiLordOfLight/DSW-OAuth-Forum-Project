@@ -32,7 +32,7 @@ class Post:
 
     def render(self, usrHandler):
         srcUsr = usrHandler.usrFor(self.sender)
-        print(self.sender)
+        # print(self.sender)
 
         if srcUsr.ban_level > 0:
             bgCol = "rgb(230,50,50)"

@@ -52,7 +52,8 @@ def home():
     user_handler.login(session["user_data"]["login"])
 
     if user_handler.current.ban_level == 2:
-        redirect("https://answers.yahoo.com/question/index?qid=20190217173954AAszYW0")
+        print("GTFO You Stupid Satan")
+        return redirect(url_for(".meme"))
 
     renderedPosts = post_handler.getRendered(user_handler)
 
@@ -64,6 +65,7 @@ def home():
 @app.route('/posted', methods=['POST'])
 def post():
     if require_login(): return redirect(url_for(".login"))
+
 
     post_handler = PostHandler()
     user_handler = UserHandler(admins)
@@ -79,14 +81,14 @@ def post():
 
     for word in msg.split(" "):
         if word.lower() in bad_words:
-            msg = {"message":"<<This user is a horrible person and shall henceforth be known as \"Spawn of Satan\">>", "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":True}
+            msg = "<<This user is a horrible person and shall henceforth be known as \"Spawn of Satan\">>"
             user_handler.banCurrent()
 
     if request.form['replyID'] == 'x' and request.form['editID'] == 'x':
         post_handler.post(msg, user_handler.current)
 
     elif not request.form['editID'] == 'x':
-        post_handler.edit(request.form['editID'], msg)
+        post_handler.editPost(request.form['editID'], msg)
 
     else:
         post_handler.postReply(msg, user_handler.current, request.form['replyID'])
@@ -124,6 +126,8 @@ def editPost():
     post_handler = PostHandler()
     user_handler = UserHandler(admins)
 
+    user_handler.login(session["user_data"]["login"])
+
     message = post_handler.postFor(msgID).message
     renderedPosts = post_handler.getRendered(user_handler)
 
@@ -138,6 +142,8 @@ def replyPost():
 
     post_handler = PostHandler()
     user_handler = UserHandler(admins)
+
+    user_handler.login(session["user_data"]["login"])
 
     renderedPosts = post_handler.getRendered(user_handler)
 
@@ -187,6 +193,13 @@ def authorized():
 
     return redirect(url_for(".home"))
 
+@app.route('/reprimand')
+def reprimand():
+    return render_template("reprimand.html")
+
+@app.route('/meme')
+def meme():
+    return render_template("meme.html")
 #the tokengetter is automatically called to check who is logged in.
 @github.tokengetter
 def get_github_oauth_token():

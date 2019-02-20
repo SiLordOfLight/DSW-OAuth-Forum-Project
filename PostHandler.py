@@ -20,7 +20,7 @@ class PostHandler:
 
     def postFor(self, id):
         for post in self.posts:
-            if post.id == id: return post
+            if int(post.id) == int(id): return post
 
         return None
     def children_of(self, pID):
@@ -55,7 +55,11 @@ class PostHandler:
         post.modify(msg)
 
     def deletePost(self, id):
-        self.posts.remove(self.postFor(id))
+        print(id)
+        p = self.postFor(id)
+        print(p)
+
+        self.posts.remove(p)
 
     def getRendered(self, usrHandler):
         out = []

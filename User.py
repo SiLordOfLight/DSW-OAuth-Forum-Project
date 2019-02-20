@@ -49,6 +49,6 @@ class User:
     def recalculateSplash(self):
         if self.hard_splash: return
 
-        for k,v in splashes.items():
+        for k,v in User.splashes.items():
             if self.post_count > k:
                 self.splash = v
