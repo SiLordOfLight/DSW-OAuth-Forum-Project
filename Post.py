@@ -15,6 +15,7 @@ class Post:
 
         self.editTime = "na"
 
+    @staticmethod
     def fromDict(input):
         newP = Post(input['message'], input['sender'], parents=input['parents'], level=input['level'])
         newP.timestamp = input['timestamp']
@@ -29,8 +30,9 @@ class Post:
         self.message = newMsg
         self.editTime = datetime.now().strftime("%m/%d %H:%M:%S")
 
-    def render(self, curUsr, usrHandler):
+    def render(self, usrHandler):
         srcUsr = usrHandler.usrFor(self.sender)
+        print(self.sender)
 
         if srcUsr.ban_level > 0:
             bgCol = "rgb(230,50,50)"
@@ -51,17 +53,17 @@ class Post:
 
         postID = self.id
 
-        if curUsr.ban_level == 0:
-            button1 = "<button type=\"submit\" formaction=\"/replyPost\" class=\"btn btn-success\" style=\"border-top-left-radius: 0px;\">Reply</button>"
+        if usrHandler.current.ban_level == 0:
+            button1 = "<button type=\"submit\" formaction=\"/replyPost\" class=\"btn btn-success\" style=\"border-top-left-radius: 0px\;\">Reply</button>"
         else:
-            button1 = "<button type=\"submit\" formaction=\"/reprimand\" class=\"btn btn-danger\" style=\"border-top-left-radius: 0px;\">XXX</button>"
+            button1 = "<button type=\"submit\" formaction=\"/reprimand\" class=\"btn btn-danger\" style=\"border-top-left-radius: 0px\;\">XXX</button>"
 
-        if curUsr.equals(srcUsr):
+        if usrHandler.current.equals(srcUsr):
             button2 = "<button type=\"submit\" formaction=\"/editPost\" class=\"btn btn-warning\">Edit</button>"
         else:
             button2 = ""
 
-        if curUsr.equals(srcUsr) or curUsr.isAdmin:
+        if usrHandler.current.equals(srcUsr) or usrHandler.current.is_admin:
             button3 = "<button type=\"submit\" formaction=\"/deletePost\" class=\"btn btn-danger\">Delete</button>"
         else:
             button3 = ""
@@ -95,7 +97,7 @@ class Post:
                 <form action="/replyPost" method="post">
                     <input type="hidden" name="msgID" value="%s">
 
-                    <div class="btn-group-vertical" style="width: 100%;">
+                    <div class="btn-group-vertical" style="width: 100%%;">
                         %s
 
                         %s

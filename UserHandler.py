@@ -18,6 +18,8 @@ class UserHandler:
         for usr in self.users:
             self.added.append(usr.name)
 
+        self.current = None
+
     def usrFor(self, id):
         for usr in self.users:
             if usr.id == id: return usr
@@ -32,8 +34,19 @@ class UserHandler:
         self.users.append(newU)
         self.added.append(name)
 
+        self.current = newU
+
     def has(self, name):
         return name in self.added
+
+    def login(self, name):
+        for user in self.users:
+            if user.name == name:
+                self.current = user
+                return
+
+    def banCurrent(self):
+        self.current.ban()
 
     def close(self):
         out = []

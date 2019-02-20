@@ -9,6 +9,8 @@ class PostHandler:
         with open("static/%s_posts.json" % name) as inFile:
             postsRaw = json.load(inFile)
 
+        self.name = name
+
         self.posts = []
         self.postCount = 0
 
@@ -34,6 +36,7 @@ class PostHandler:
         newP = Post(msg, curUsr.id)
         self.posts.append(newP)
         self.postCount += 1
+        curUsr.posted()
 
     def postReply(self, msg, curUsr, parentID):
         parent = self.postFor(parentID)
@@ -41,6 +44,8 @@ class PostHandler:
         new_index = self.posts.index(parent) + len(self.children_of(parentID))
 
         newP = Post(msg, curUsr.id, parents=parent.parents.append(parentID), level=parent.level+1)
+
+        curUsr.replied()
 
         self.posts.insert(new_index, newP)
         self.postCount += 1
@@ -52,11 +57,11 @@ class PostHandler:
     def deletePost(self, id):
         self.posts.remove(self.postFor(id))
 
-    def getRendered(self, curUsr, usrHandler):
+    def getRendered(self, usrHandler):
         out = []
 
         for post in self.posts:
-            out.append(post.render(curUsr, usrHandler))
+            out.append(post.render(usrHandler))
 
         return out
 
@@ -65,5 +70,5 @@ class PostHandler:
         for post in self.posts:
             out.append(post.toJSON())
 
-        with open("static/%s_posts.json" % name, 'w') as outFile:
+        with open("static/%s_posts.json" % self.name, 'w') as outFile:
             json.dump(out, outFile)
