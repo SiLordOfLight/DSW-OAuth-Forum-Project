@@ -54,7 +54,7 @@ def home():
 
     user_handler.login(session["user_data"]["login"])
 
-    if user_handler.current.ban_level == 2:
+    if user_handler.current.ban_level >= 2:
         print("GTFO You Stupid Satan")
         return redirect(url_for(".meme"))
 
