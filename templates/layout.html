@@ -10,10 +10,10 @@
 
     <title>{% block title %}{% endblock %}</title>
   </head>
-  
+
   <body>
     {% include 'navbar.html' %}
-    <div id="content">
+    <div id="content" style="margin-bottom: 10px;">
     {% block content %}{% endblock %}
     </div>
   </body>

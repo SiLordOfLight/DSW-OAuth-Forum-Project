@@ -69,6 +69,10 @@ class PostHandler:
 
         return out
 
+    def clear(self):
+        self.posts = []
+        self.postCount = 0
+
     def close(self):
         out = []
         for post in self.posts:

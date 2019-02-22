@@ -17,11 +17,12 @@ body {
 }
 
 .memePage {
-    background-image: url("static/RemorsefulVader.jpg");
+    background-image: url("RemorsefulVader.jpg");
 }
 
 #content {
 	 margin-right: 20px;
+     margin-left: 20px;
 }
 
 

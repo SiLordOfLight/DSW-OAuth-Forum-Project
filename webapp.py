@@ -16,9 +16,9 @@ app.debug = True #Change this to False for production
 
 app.secret_key = os.environ['SECRET_KEY'] #used to sign session cookies
 oauth = OAuth(app)
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+# os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-admins = os.environ['admins']
+# admins = os.environ['admins']
 
 #Set up GitHub as OAuth provider
 github = oauth.remote_app(
@@ -46,8 +46,11 @@ def inject_logged_in():
 def home():
     if require_login(): return redirect(url_for(".login"))
 
+    if "echoCMDS" not in session:
+        session["echoCMDS"] = True
+
     post_handler = PostHandler()
-    user_handler = UserHandler(admins)
+    user_handler = UserHandler()
 
     user_handler.login(session["user_data"]["login"])
 
@@ -68,11 +71,57 @@ def post():
 
 
     post_handler = PostHandler()
-    user_handler = UserHandler(admins)
+    user_handler = UserHandler()
 
     user_handler.login(session["user_data"]["login"])
 
     msg = request.form['message']
+
+    if str(msg).startswith("#!"):
+        cmds = msg.split(' ')
+
+        if not user_handler.current.is_admin:
+            msg = "$$This noob tried to use an admin command$$"
+
+        elif cmds[1] == "ban":
+            id = int(cmds[2])
+            usr = user_handler.usrFor(id)
+            level = int(cmds[3])
+            usr.ban_level = level
+            msg = "$$Set ban level for %s to %i$$" % (usr.name, level)
+
+        elif cmds[1] == "unban":
+            id = int(cmds[2])
+            usr = user_handler.usrFor(id)
+            usr.ban_level = 0
+            msg = "$$Unbanned %s (%i)$$" % (usr.name, id)
+
+        elif cmds[1] == "makeadmin":
+            id = int(cmds[2])
+            user_handler.makeAdmin(id)
+            usr = user_handler.usrFor(id)
+            msg = "$$Made %s an Admin$$" % (usr.name)
+
+        elif cmds[1] == "noadmin":
+            id = int(cmds[2])
+            user_handler.unAdmin(id)
+            usr = user_handler.usrFor(id)
+            msg = "$$Revoked Admin privileges from %s$$" % (usr.name)
+
+        elif cmds[1] == "toggleecho":
+            session["echoCMDS"] = not session["echoCMDS"]
+            msg = "$$Toggle command echo$$"
+
+        elif cmds[1] == "clearforum":
+            post_handler.clear()
+            msg = "$$Cleared Forum$$"
+
+        if not session["echoCMDS"]:
+            post_handler.close()
+            user_handler.close()
+
+            return redirect(url_for(".home"))
+
 
     with open("static/badWords.json") as fitfile:
         raw = fitfile.read()
@@ -81,7 +130,7 @@ def post():
 
     for word in msg.split(" "):
         if word.lower() in bad_words:
-            msg = "<<This user is a horrible person and shall henceforth be known as \"Spawn of Satan\">>"
+            msg = "$$This user is a horrible person and shall henceforth be known as \"Spawn of Satan\"$$"
             user_handler.banCurrent()
 
     if request.form['replyID'] == 'x' and request.form['editID'] == 'x':
@@ -103,7 +152,7 @@ def deletePost():
     if require_login(): return redirect(url_for(".login"))
 
     post_handler = PostHandler()
-    # user_handler = UserHandler(admins)
+    # user_handler = UserHandler()
 
     # user_handler.login(session["user_data"]["login"])
 
@@ -124,7 +173,7 @@ def editPost():
     msgID = request.form['msgID']
 
     post_handler = PostHandler()
-    user_handler = UserHandler(admins)
+    user_handler = UserHandler()
 
     user_handler.login(session["user_data"]["login"])
 
@@ -141,7 +190,7 @@ def replyPost():
     if require_login(): return redirect(url_for(".login"))
 
     post_handler = PostHandler()
-    user_handler = UserHandler(admins)
+    user_handler = UserHandler()
 
     user_handler.login(session["user_data"]["login"])
 
@@ -155,7 +204,7 @@ def replyPost():
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
 def login():
-    return github.authorize(callback=url_for('authorized', _external=True, _scheme='http')) #callback URL must match the pre-configured callback URL
+    return github.authorize(callback=url_for('authorized', _external=True, _scheme='https')) #callback URL must match the pre-configured callback URL
 
 @app.route('/logout')
 def logout():
@@ -181,7 +230,7 @@ def authorized():
             return render_template('message.html', message=message)
 
     # post_handler = PostHandler()
-    user_handler = UserHandler(admins)
+    user_handler = UserHandler()
 
     if not user_handler.has(session["user_data"]["login"]):
         user_handler.newUsr(session["user_data"]["login"])
@@ -193,9 +242,9 @@ def authorized():
 
     return redirect(url_for(".home"))
 
-@app.route('/reprimand')
+@app.route('/reprimand', methods=['GET','POST'])
 def reprimand():
-    return render_template("reprimand.html")
+    return render_template("meme.html")
 
 @app.route('/meme')
 def meme():

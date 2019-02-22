@@ -3,8 +3,9 @@ import json
 
 class UserHandler:
 
-    def __init__(self, admins):
-        self.admins = admins
+    def __init__(self):
+        with open("static/admins.json") as adminFile:
+            self.admins = json.load(adminFile)
 
         with open("static/users.json") as inFile:
             usrRaw = json.load(inFile)
@@ -47,6 +48,24 @@ class UserHandler:
 
     def banCurrent(self):
         self.current.ban()
+
+    def makeAdmin(self, id):
+        usr = self.usrFor(id)
+        usr.is_admin = True
+
+        self.admins.append(id)
+
+        with open("static/admins.json", 'w') as adminFile:
+            json(self.admins, adminFile)
+
+    def unAdmin(self, id):
+        usr = self.usrFor(id)
+        usr.is_admin = False
+
+        self.admins.remove(id)
+
+        with open("static/admins.json", 'w') as adminFile:
+            json(self.admins, adminFile)
 
     def close(self):
         out = []
