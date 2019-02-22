@@ -41,7 +41,7 @@ class PostHandler:
     def postReply(self, msg, curUsr, parentID):
         parent = self.postFor(parentID)
 
-        new_index = self.posts.index(parent) + len(self.children_of(parentID))
+        new_index = self.posts.index(parent) + len(self.children_of(parentID)) + 1
 
         newP = Post(msg, curUsr.id, parents=parent.parents.append(parentID), level=parent.level+1)
 
