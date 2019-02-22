@@ -75,6 +75,9 @@ def post():
 
     user_handler.login(session["user_data"]["login"])
 
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
+
     msg = request.form['message']
 
     if str(msg).startswith("#!"):
@@ -152,9 +155,12 @@ def deletePost():
     if require_login(): return redirect(url_for(".login"))
 
     post_handler = PostHandler()
-    # user_handler = UserHandler()
+    user_handler = UserHandler()
 
-    # user_handler.login(session["user_data"]["login"])
+    user_handler.login(session["user_data"]["login"])
+
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
 
     # user_handler.current.deleted()
 
@@ -177,6 +183,9 @@ def editPost():
 
     user_handler.login(session["user_data"]["login"])
 
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
+
     message = post_handler.postFor(msgID).message
     renderedPosts = post_handler.getRendered(user_handler)
 
@@ -193,6 +202,9 @@ def replyPost():
     user_handler = UserHandler()
 
     user_handler.login(session["user_data"]["login"])
+
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
 
     renderedPosts = post_handler.getRendered(user_handler)
 
