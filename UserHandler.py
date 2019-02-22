@@ -62,7 +62,7 @@ class UserHandler:
         self.admins.append(id)
 
         with open("static/admins.json", 'w') as adminFile:
-            json(self.admins, adminFile)
+            json.dump(self.admins, adminFile)
 
     def unAdmin(self, id):
         usr = self.usrFor(id)
@@ -71,7 +71,7 @@ class UserHandler:
         self.admins.remove(id)
 
         with open("static/admins.json", 'w') as adminFile:
-            json(self.admins, adminFile)
+            json.dump(self.admins, adminFile)
 
     def close(self):
         out = []
