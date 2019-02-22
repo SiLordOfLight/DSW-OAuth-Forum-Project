@@ -27,6 +27,12 @@ class UserHandler:
 
         return None
 
+    def usrForName(self, nm):
+        for usr in self.users:
+            if usr.name == nm: return usr
+
+        return None
+
     def newUsr(self, name):
         status = name in self.admins
 

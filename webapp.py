@@ -128,8 +128,8 @@ def post():
                 msg = post.rep()
 
             elif cmds[2] == "user":
-                id = int(cmds[3])
-                user = user_handler.usrFor(id)
+                nm = cmds[3]
+                user = user_handler.usrForName(nm)
                 msg = user.rep()
 
         if not session["echoCMDS"]:
