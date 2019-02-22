@@ -30,6 +30,9 @@ class Post:
         self.message = newMsg
         self.editTime = datetime.now().strftime("%m/%d %H:%M:%S")
 
+    def rep(self):
+        return str(self.toJSON())
+
     def render(self, usrHandler):
         srcUsr = usrHandler.usrFor(self.sender)
         # print(self.sender)
@@ -48,6 +51,11 @@ class Post:
 
         postTime = self.timestamp
         editTime = "<h6>Edited: %s</h6>" % self.editTime if self.editTime != "na" else ""
+
+        if usrHandler.current.is_admin:
+            postIDt = "<h6>%i</h6>" % self.id
+        else:
+            postIDt = ""
 
         message = self.message if srcUsr.ban_level < 2 else "<b>THIS USER HAS BEEN EXCOMMUNICATED</b>"
 
@@ -85,6 +93,7 @@ class Post:
                 <h6>%s</h6>
             	<h6>%s</h6>
                 %s
+                %s
             </div>
 
             <div class="col-lg" style="
@@ -106,4 +115,4 @@ class Post:
                     </div>
                 </form>
             </div>
-        </div>""" % (bgCol,margin,txtCol,senderName,senderSplash,postTime,editTime,message,postID,button1,button2,button3)
+        </div>""" % (bgCol,margin,txtCol,senderName,senderSplash,postTime,editTime,postIDt,message,postID,button1,button2,button3)

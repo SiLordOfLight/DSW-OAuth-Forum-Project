@@ -34,6 +34,9 @@ class User:
     def ban(self):
         self.ban_level += 1
 
+    def rep(self):
+        return str(self.toJSON())
+
     def posted(self):
         self.post_count += 1
         self.recalculateSplash()

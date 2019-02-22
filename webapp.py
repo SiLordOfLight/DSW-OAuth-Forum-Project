@@ -54,6 +54,8 @@ def home():
 
     user_handler.login(session["user_data"]["login"])
 
+    session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
+
     if user_handler.current.ban_level >= 2:
         print("GTFO You Stupid Satan")
         return redirect(url_for(".meme"))
@@ -118,6 +120,17 @@ def post():
         elif cmds[1] == "clearforum":
             post_handler.clear()
             msg = "$$Cleared Forum$$"
+
+        elif cmds[1] == "lookat":
+            if cmds[2] == "post":
+                id = int(cmds[3])
+                post = post_handler.postFor(id)
+                msg = post.rep()
+
+            elif cmds[2] == "user":
+                id = int(cmds[3])
+                user = user_handler.usrFor(id)
+                msg = user.rep()
 
         if not session["echoCMDS"]:
             post_handler.close()
@@ -189,6 +202,8 @@ def editPost():
     message = post_handler.postFor(msgID).message
     renderedPosts = post_handler.getRendered(user_handler)
 
+    session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
+
     post_handler.close()
     user_handler.close()
 
@@ -207,6 +222,8 @@ def replyPost():
         return redirect(url_for(".home"))
 
     renderedPosts = post_handler.getRendered(user_handler)
+
+    session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
 
     post_handler.close()
     user_handler.close()
