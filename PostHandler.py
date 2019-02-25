@@ -40,6 +40,7 @@ class PostHandler:
 
     def postReply(self, msg, curUsr, parentID):
         parent = self.postFor(parentID)
+        if parent is None: return
 
         new_index = self.posts.index(parent) + len(self.children_of(parentID)) + 1
 
@@ -55,6 +56,7 @@ class PostHandler:
 
     def editPost(self, id, msg):
         post = self.postFor(id)
+        if post is None: return
         post.modify(msg)
 
     def deletePost(self, id):
@@ -62,7 +64,7 @@ class PostHandler:
         p = self.postFor(id)
         # print(p)
 
-        self.posts.remove(p)
+        if p in self.posts: self.posts.remove(p)
 
         toDelete = []
 
@@ -74,7 +76,7 @@ class PostHandler:
 
         for cid in toDelete:
             child = self.postFor(cid)
-            self.posts.remove(child)
+            if child in self.posts: self.posts.remove(child)
 
 
     def getRendered(self, usrHandler):
