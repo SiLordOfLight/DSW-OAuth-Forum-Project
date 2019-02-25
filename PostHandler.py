@@ -58,11 +58,16 @@ class PostHandler:
         post.modify(msg)
 
     def deletePost(self, id):
-        print(id)
+        # print(id)
         p = self.postFor(id)
-        print(p)
+        # print(p)
 
         self.posts.remove(p)
+
+        for po in self.posts:
+            if id in po.parents:
+                self.posts.remove(po)
+
 
     def getRendered(self, usrHandler):
         out = []
