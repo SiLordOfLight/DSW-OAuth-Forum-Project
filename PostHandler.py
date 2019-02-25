@@ -65,7 +65,7 @@ class PostHandler:
         self.posts.remove(p)
 
         for po in self.posts:
-            if id in po.parents:
+            if int(id) in po.parents:
                 self.posts.remove(po)
 
 
