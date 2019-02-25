@@ -64,9 +64,17 @@ class PostHandler:
 
         self.posts.remove(p)
 
+        toDelete = []
+
         for po in self.posts:
             if int(id) in po.parents:
-                self.posts.remove(po)
+                toDelete.append(po.id)
+
+        print(toDelete)
+
+        for cid in toDelete:
+            child = self.postFor(cid)
+            self.posts.remove(child)
 
 
     def getRendered(self, usrHandler):
