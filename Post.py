@@ -98,7 +98,7 @@ class Post:
 
             <div class="col-lg" style="
                     padding-top: 5px;
-                    padding-bottom: 5px;">
+                    padding-bottom: 5px;word-wrap: break-word;">
                 <p>%s</p>
             </div>
 
