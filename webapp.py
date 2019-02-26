@@ -8,7 +8,7 @@ from PostHandler import PostHandler
 import pprint
 import os
 import json
-import datetime
+import datetime as dt
 
 app = Flask(__name__)
 
@@ -67,10 +67,23 @@ def home():
 
     return render_template('home.html', posts=renderedPosts, reply_id='x', edit_id="x")
 
+@app.route('/newPosts')
+def getNewPosts():
+    post_handler = PostHandler()
+    user_handler = UserHandler()
+
+    user_handler.login(session["user_data"]["login"])
+
+    renderedPosts = post_handler.getRendered(user_handler)
+
+    post_handler.close()
+    user_handler.close()
+
+    return renderedPosts
+
 @app.route('/posted', methods=['POST'])
 def post():
     if require_login(): return redirect(url_for(".login"))
-
 
     post_handler = PostHandler()
     user_handler = UserHandler()
@@ -137,7 +150,6 @@ def post():
             user_handler.close()
 
             return redirect(url_for(".home"))
-
 
     with open("static/badWords.json") as fitfile:
         raw = fitfile.read()
@@ -214,7 +226,7 @@ def editPost():
     post_handler.close()
     user_handler.close()
 
-    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message)
+    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message, last_known=session["last_known_post"])
 
 @app.route('/replyPost', methods=['POST'])
 def replyPost():
@@ -235,7 +247,7 @@ def replyPost():
     post_handler.close()
     user_handler.close()
 
-    return render_template('home.html', posts=renderedPosts, reply_id=request.form['msgID'], edit_id='x')
+    return render_template('home.html', posts=renderedPosts, reply_id=request.form['msgID'], edit_id='x', last_known=session["last_known_post"])
 
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
