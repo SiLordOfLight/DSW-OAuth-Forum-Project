@@ -212,7 +212,7 @@ def editPost():
     post_handler.close()
     user_handler.close()
 
-    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message)
+    return redirect(url_for(".home"))
 
 @app.route('/replyPost', methods=['POST'])
 def replyPost():
