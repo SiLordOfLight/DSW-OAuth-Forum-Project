@@ -199,7 +199,12 @@ def editPost():
     if user_handler.current.ban_level >= 2:
         return redirect(url_for(".home"))
 
-    message = post_handler.postFor(msgID).message
+    posto = post_handler.postFor(msgID)
+    if posto not in post_handler.posts:
+        post_handler.close()
+        user_handler.close()
+
+        return render_template('home.html', posts=renderedPosts, edit_id='x', reply_id='x')
     renderedPosts = post_handler.getRendered(user_handler)
 
     session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
