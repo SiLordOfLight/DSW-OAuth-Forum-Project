@@ -205,6 +205,8 @@ def editPost():
         user_handler.close()
 
         return redirect(url_for(".home"))
+
+    message = posto.message
     renderedPosts = post_handler.getRendered(user_handler)
 
     session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
