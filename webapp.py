@@ -204,7 +204,7 @@ def editPost():
         post_handler.close()
         user_handler.close()
 
-        return render_template('home.html', posts=renderedPosts, edit_id='x', reply_id='x')
+        return redirect(url_for(".home"))
     renderedPosts = post_handler.getRendered(user_handler)
 
     session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
@@ -212,7 +212,7 @@ def editPost():
     post_handler.close()
     user_handler.close()
 
-    return redirect(url_for(".home"))
+    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message)
 
 @app.route('/replyPost', methods=['POST'])
 def replyPost():
