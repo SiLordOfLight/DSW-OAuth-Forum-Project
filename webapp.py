@@ -79,7 +79,7 @@ def getNewPosts():
     post_handler.close()
     user_handler.close()
 
-    return renderedPosts
+    return str(renderedPosts)
 
 @app.route('/posted', methods=['POST'])
 def post():
