@@ -6,7 +6,7 @@ from User import User
 class Post:
 
     def __init__(self, msg, senderID, parents=[], level=0):
-        self.message = msg
+        self.message = msg.replace('\r', '').replace('\n', '<br>')
         self.sender = senderID
         self.parents = parents
         self.level = level

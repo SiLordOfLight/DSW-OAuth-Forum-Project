@@ -10,5 +10,5 @@ function updatePosts() {
     });
 }
 
-setInterval('updatePosts()', 1000 * 15);
-setInterval('updatePosts()', 1000 * 15);
+// setInterval('updatePosts()', 1000 * 15);
+// setInterval('updatePosts()', 1000 * 15);
