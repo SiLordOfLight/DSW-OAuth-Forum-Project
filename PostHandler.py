@@ -2,21 +2,22 @@ import json
 from Post import Post
 from User import User
 from UserHandler import UserHandler
+import pymongo
+import copy
 
 class PostHandler:
 
-    def __init__(self, name="main"):
-        with open("static/%s_posts.json" % name) as inFile:
-            postsRaw = json.load(inFile)
-
+    def __init__(self, database, name="main"):
         self.name = name
 
         self.posts = []
         self.postCount = 0
 
-        for raw in postsRaw:
+        for raw in database.find():
             self.posts.append(Post.fromDict(raw))
             self.postCount += 1
+
+        self.database = database
 
     def postFor(self, id):
         for post in self.posts:
@@ -38,13 +39,15 @@ class PostHandler:
         self.postCount += 1
         curUsr.posted()
 
+        self.database.insert(newP.toJSON())
+
     def postReply(self, msg, curUsr, parentID):
         parent = self.postFor(parentID)
         if parent is None: return
 
         new_index = self.posts.index(parent) + len(self.children_of(parentID)) + 1
 
-        plst = parent.parents.copy()
+        plst = copy.copy(parent.parents)
         plst.append(parent.id)
 
         newP = Post(msg, curUsr.id, parents=plst, level=parent.level+1)
@@ -54,10 +57,14 @@ class PostHandler:
         self.posts.insert(new_index, newP)
         self.postCount += 1
 
+        self.database.insert(newP.toJSON())
+
     def editPost(self, id, msg):
         post = self.postFor(id)
         if post is None: return
         post.modify(msg)
+
+        self.database.update_one({"_id":post.id}, {"$set":{"message":post.message}})
 
     def deletePost(self, id):
         # print(id)
@@ -78,6 +85,8 @@ class PostHandler:
             child = self.postFor(cid)
             if child in self.posts: self.posts.remove(child)
 
+        self.database.delete_one({"_id":int(id)})
+
 
     def getRendered(self, usrHandler):
         out = []
@@ -90,11 +99,4 @@ class PostHandler:
     def clear(self):
         self.posts = []
         self.postCount = 0
-
-    def close(self):
-        out = []
-        for post in self.posts:
-            out.append(post.toJSON())
-
-        with open("static/%s_posts.json" % self.name, 'w') as outFile:
-            json.dump(out, outFile)
+        self.database.delete_many({})

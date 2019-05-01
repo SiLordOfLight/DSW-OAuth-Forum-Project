@@ -1,18 +1,13 @@
 from User import User
 import json
+import pymongo
 
 class UserHandler:
 
-    def __init__(self):
-        with open("static/admins.json") as adminFile:
-            self.admins = json.load(adminFile)
-
-        with open("static/users.json") as inFile:
-            usrRaw = json.load(inFile)
-
+    def __init__(self, database):
         self.users = []
 
-        for raw in usrRaw:
+        for raw in database.find():
             self.users.append(User.fromDict(raw))
 
         self.added = []
@@ -20,6 +15,10 @@ class UserHandler:
             self.added.append(usr.name)
 
         self.current = None
+
+        self.admins = [usr for usr in self.users if usr.is_admin]
+
+        self.database = database
 
     def usrFor(self, id):
         for usr in self.users:
@@ -43,6 +42,8 @@ class UserHandler:
 
         self.current = newU
 
+        self.database.insert(newU.toJSON())
+
     def has(self, name):
         return name in self.added
 
@@ -54,29 +55,19 @@ class UserHandler:
 
     def banCurrent(self):
         self.current.ban()
+        self.database.update_one({'_id':self.current.id}, {'ban_level':self.current.ban_level})
 
     def makeAdmin(self, id):
         usr = self.usrFor(id)
         usr.is_admin = True
 
         self.admins.append(id)
-
-        with open("static/admins.json", 'w') as adminFile:
-            json.dump(self.admins, adminFile)
+        self.database.update_one({'_id':usr.id}, {'is_admin':usr.is_admin})
 
     def unAdmin(self, id):
         usr = self.usrFor(id)
         usr.is_admin = False
 
         self.admins.remove(id)
+        self.database.update_one({'_id':usr.id}, {'is_admin':usr.is_admin})
 
-        with open("static/admins.json", 'w') as adminFile:
-            json.dump(self.admins, adminFile)
-
-    def close(self):
-        out = []
-        for usr in self.users:
-            out.append(usr.toJSON())
-
-        with open("static/users.json", 'w') as outFile:
-            json.dump(out, outFile)

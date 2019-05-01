@@ -21,12 +21,12 @@ class User:
         newU.post_count = input['post_count']
         newU.splash = input['splash']
         newU.hard_splash = input['hard_splash']
-        newU.id = input['id']
+        newU.id = input['_id']
 
         return newU
 
     def toJSON(self):
-        return {'name':self.name, 'is_admin':self.is_admin, 'ban_level':self.ban_level, 'post_count':self.post_count, 'splash':self.splash, 'hard_splash':self.hard_splash, 'id':self.id}
+        return {'name':self.name, 'is_admin':self.is_admin, 'ban_level':self.ban_level, 'post_count':self.post_count, 'splash':self.splash, 'hard_splash':self.hard_splash, '_id':self.id}
 
     def equals(self, other):
         return self.id == other.id

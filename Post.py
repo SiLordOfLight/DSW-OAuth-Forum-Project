@@ -3,6 +3,7 @@ import json
 from UserHandler import UserHandler
 from User import User
 
+
 class Post:
 
     def __init__(self, msg, senderID, parents=[], level=0):
@@ -19,12 +20,12 @@ class Post:
     def fromDict(input):
         newP = Post(input['message'], input['sender'], parents=input['parents'], level=input['level'])
         newP.timestamp = input['timestamp']
-        newP.id = input['id']
+        newP.id = input['_id']
 
         return newP
 
     def toJSON(self):
-        return {'message':self.message, 'sender':self.sender, 'parents':self.parents, 'level':self.level, 'timestamp':self.timestamp, 'id':self.id}
+        return {'message':self.message, 'sender':self.sender, 'parents':self.parents, 'level':self.level, 'timestamp':self.timestamp, '_id':self.id}
 
     def modify(self, newMsg):
         self.message = newMsg

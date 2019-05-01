@@ -1,9 +1,10 @@
 from flask import Flask, redirect, url_for, session, request, jsonify, Markup
 from flask_oauthlib.client import OAuth
-from flask import render_template
+from flask import render_template, flash
 import myEncode as me
 from UserHandler import UserHandler
 from PostHandler import PostHandler
+import pymongo
 
 import pprint
 import os
@@ -18,7 +19,17 @@ app.secret_key = os.environ['SECRET_KEY'] #used to sign session cookies
 oauth = OAuth(app)
 # os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-# admins = os.environ['admins']
+url = 'mongodb://{}:{}@{}/{}'.format(
+    os.environ["MONGO_USERNAME"],
+    os.environ["MONGO_PASSWORD"],
+    os.environ["MONGO_HOST"],
+    os.environ["MONGO_DBNAME"])
+
+client = pymongo.MongoClient(os.environ["MONGO_HOST"])
+db = client[os.environ["MONGO_DBNAME"]]
+posts_collection = db['posts']
+users_collection = db['users']
+data_collection = db['other_data']
 
 #Set up GitHub as OAuth provider
 github = oauth.remote_app(
@@ -42,6 +53,21 @@ def require_login():
 def inject_logged_in():
     return {"logged_in":('github_token' in session)}
 
+@app.route('/welcome')
+def welcome():
+    if "do_flash" not in session:
+        session["do_flash"] = False
+        session["flash_message"] = ""
+        session["flash_mode"] = ""
+
+    if session["do_flash"]:
+        flash(session["flash_message"],session["flash_mode"])
+        session["do_flash"] = False
+        session["flash_message"] = ""
+        session["flash_mode"] = ""
+
+    return render_template('home.html', posts=renderedPosts, reply_id='x', edit_id="x")
+
 @app.route('/')
 def home():
     if require_login(): return redirect(url_for(".login"))
@@ -49,8 +75,8 @@ def home():
     if "echoCMDS" not in session:
         session["echoCMDS"] = True
 
-    post_handler = PostHandler()
-    user_handler = UserHandler()
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     user_handler.login(session["user_data"]["login"])
 
@@ -62,22 +88,16 @@ def home():
 
     renderedPosts = post_handler.getRendered(user_handler)
 
-    post_handler.close()
-    user_handler.close()
-
     return render_template('home.html', posts=renderedPosts, reply_id='x', edit_id="x")
 
 @app.route('/newPosts')
 def getNewPosts():
-    post_handler = PostHandler()
-    user_handler = UserHandler()
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     user_handler.login(session["user_data"]["login"])
 
     renderedPosts = post_handler.getRendered(user_handler)
-
-    post_handler.close()
-    user_handler.close()
 
     return str(renderedPosts)
 
@@ -85,8 +105,8 @@ def getNewPosts():
 def post():
     if require_login(): return redirect(url_for(".login"))
 
-    post_handler = PostHandler()
-    user_handler = UserHandler()
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     user_handler.login(session["user_data"]["login"])
 
@@ -146,15 +166,12 @@ def post():
                 msg = user.rep()
 
         if not session["echoCMDS"]:
-            post_handler.close()
-            user_handler.close()
-
             return redirect(url_for(".home"))
 
-    with open("static/badWords.json") as fitfile:
-        raw = fitfile.read()
-        decd = me.decode(raw)
-        bad_words = json.loads(decd)
+    with open("static/badWords.json") as bwFile:
+        rawbw = bwFile.read()
+    decd = me.decode(rawbw)
+    bad_words = json.loads(decd)
 
     for word in msg.split(" "):
         if word.lower() in bad_words:
@@ -170,30 +187,21 @@ def post():
     else:
         post_handler.postReply(msg, user_handler.current, request.form['replyID'])
 
-    post_handler.close()
-    user_handler.close()
-
     return redirect(url_for(".home"))
 
 @app.route('/deletePost', methods=['POST'])
 def deletePost():
     if require_login(): return redirect(url_for(".login"))
 
-    post_handler = PostHandler()
-    user_handler = UserHandler()
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     user_handler.login(session["user_data"]["login"])
 
     if user_handler.current.ban_level >= 2:
         return redirect(url_for(".home"))
 
-    # user_handler.current.deleted()
-
     post_handler.deletePost(request.form['msgID'])
-    post_handler.close()
-
-    post_handler.close()
-    # user_handler.close()
 
     return redirect(url_for(".home"))
 
@@ -203,8 +211,8 @@ def editPost():
 
     msgID = request.form['msgID']
 
-    post_handler = PostHandler()
-    user_handler = UserHandler()
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     user_handler.login(session["user_data"]["login"])
 
@@ -213,9 +221,6 @@ def editPost():
 
     posto = post_handler.postFor(msgID)
     if posto not in post_handler.posts:
-        post_handler.close()
-        user_handler.close()
-
         return redirect(url_for(".home"))
 
     message = posto.message
@@ -223,17 +228,14 @@ def editPost():
 
     session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
 
-    post_handler.close()
-    user_handler.close()
-
-    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message, last_known=session["last_known_post"])
+    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message)
 
 @app.route('/replyPost', methods=['POST'])
 def replyPost():
     if require_login(): return redirect(url_for(".login"))
 
-    post_handler = PostHandler()
-    user_handler = UserHandler()
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     user_handler.login(session["user_data"]["login"])
 
@@ -244,10 +246,7 @@ def replyPost():
 
     session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
 
-    post_handler.close()
-    user_handler.close()
-
-    return render_template('home.html', posts=renderedPosts, reply_id=request.form['msgID'], edit_id='x', last_known=session["last_known_post"])
+    return render_template('home.html', posts=renderedPosts, reply_id=request.form['msgID'], edit_id='x')
 
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
@@ -257,7 +256,10 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    return render_template('message.html', message='You were logged out')
+    session["do_flash"] = True
+    session["flash_message"] = "You were logged out"
+    session["flash_mode"] = "warning"
+    return redirect(url_for(".welcome"))
 
 @app.route('/login/authorized')
 def authorized():
@@ -265,7 +267,10 @@ def authorized():
     if resp is None:
         session.clear()
         message = 'Access denied: reason=' + request.args['error'] + ' error=' + request.args['error_description'] + ' full=' + pprint.pformat(request.args)
-        return render_template('message.html', message=message)
+        session["do_flash"] = True
+        session["flash_message"] = message
+        session["flash_mode"] = "warning"
+        return redirect(url_for(".welcome"))
     else:
         try:
             session['github_token'] = (resp['access_token'], '') #save the token to prove that the user logged in
@@ -275,18 +280,18 @@ def authorized():
             session.clear()
             print(inst)
             message='Unable to login, please try again.  '
-            return render_template('message.html', message=message)
+            session["do_flash"] = True
+            session["flash_message"] = message
+            session["flash_mode"] = "danger"
+            return redirect(url_for(".welcome"))
 
-    # post_handler = PostHandler()
-    user_handler = UserHandler()
+    # post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
     if not user_handler.has(session["user_data"]["login"]):
         user_handler.newUsr(session["user_data"]["login"])
     else:
         user_handler.login(session["user_data"]["login"])
-
-    # post_handler.close()
-    user_handler.close()
 
     return redirect(url_for(".home"))
 
@@ -297,7 +302,7 @@ def reprimand():
 @app.route('/meme')
 def meme():
     return render_template("meme.html")
-#the tokengetter is automatically called to check who is logged in.
+
 @github.tokengetter
 def get_github_oauth_token():
     return session.get('github_token')
