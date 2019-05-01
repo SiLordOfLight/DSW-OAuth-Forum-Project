@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>The Forum of Existence</h1>
-<p>A forum for the posting the essence of existence (anything and everything). But please be appropriate  We're watching  </p>
+<p>A forum for the posting on the essence of existence (anything and everything). But please be appropriate. We're watching</p>
 
 <form action='/posted' method="post">
 <div class="form-group">
@@ -33,57 +33,14 @@
 
 <br/>
 
-<div class="container-fluid">
+<div class="container-fluid" id="posts-holder">
     {% for post in posts %}
-    <div class="row post-msg" style="
-            margin-top: 5px;
-            background-color: {%if post["bad_guy"] %}rgb(255,0,0){%else%}rgb(55,131,246){%endif%};
-            border-radius: 10px;
-            padding: 0px;
-            margin-left: {{post['level'] * 20}}px;
-            color: {%if post["bad_guy"]%} black {%else%} white {%endif%}">
-
-        <div class="col-lg-auto" style="
-                border-right: dashed white 1px;
-                padding-top: 5px;
-                padding-bottom: 5px;">
-            <h4>{{post['sender']}}</h4>
-            {% if post["bad_guy"] %}
-                <h6>Spawn of Satan</h6>
-            {% else %}
-                <h6>Angel of Light</h6>
-            {%endif%}
-        	<h6>{{post['time']}}</h6>
-            {% if "editTime" in post %}
-                <h6>{{post['editTime']}}</h6>
-            {% endif %}
-        </div>
-
-        <div class="col-lg" style="
-                padding-top: 5px;
-                padding-bottom: 5px;">
-            <p>{{post['message']}}</p>
-        </div>
-
-        <div class="col-lg-1" style="padding-right: 0px;">
-            <form action="/replyPost" method="post">
-                <input type="hidden" name="msgID" value="{{post['id']}}">
-
-                <div class="btn-group-vertical" style="width: 100%;">
-                    <button type="submit" formaction="/replyPost" class="btn btn-success" style="border-top-left-radius: 0px;">Reply</button>
-
-                    {% if session['user_data']['login'] == post['sender'] %}
-                        <button type="submit" formaction="/editPost" class="btn btn-warning">Edit</button>
-                    {% endif %}
-
-                    {% if session['user_data']['login'] == post['sender'] or session['user_type'] == "admin" %}
-                    <button type="submit" formaction="/deletePost" class="btn btn-danger" style="border-bottom-left-radius: 0px;">Delete</button>
-                    {% endif %}
-                </div>
-            </form>
-        </div>
-    </div>
+    {{post|safe}}
     {% endfor %}
 </div>
+
+<!-- <script src="{{ url_for('static', filename='refresh.js') }}" charset="utf-8"></script> -->
+
+</script>
 
 {% endblock %}

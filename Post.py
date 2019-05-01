@@ -3,10 +3,11 @@ import json
 from UserHandler import UserHandler
 from User import User
 
+
 class Post:
 
     def __init__(self, msg, senderID, parents=[], level=0):
-        self.message = msg
+        self.message = msg.replace('\r', '').replace('\n', '<br>')
         self.sender = senderID
         self.parents = parents
         self.level = level
@@ -15,22 +16,27 @@ class Post:
 
         self.editTime = "na"
 
+    @staticmethod
     def fromDict(input):
         newP = Post(input['message'], input['sender'], parents=input['parents'], level=input['level'])
         newP.timestamp = input['timestamp']
-        newP.id = input['id']
+        newP.id = input['_id']
 
         return newP
 
     def toJSON(self):
-        return {'message':self.message, 'sender':self.sender, 'parents':self.parents, 'level':self.level, 'timestamp':self.timestamp, 'id':self.id}
+        return {'message':self.message, 'sender':self.sender, 'parents':self.parents, 'level':self.level, 'timestamp':self.timestamp, '_id':self.id}
 
     def modify(self, newMsg):
         self.message = newMsg
         self.editTime = datetime.now().strftime("%m/%d %H:%M:%S")
 
-    def render(self, curUsr, usrHandler):
+    def rep(self):
+        return str(self.toJSON())
+
+    def render(self, usrHandler):
         srcUsr = usrHandler.usrFor(self.sender)
+        # print(self.sender)
 
         if srcUsr.ban_level > 0:
             bgCol = "rgb(230,50,50)"
@@ -47,21 +53,26 @@ class Post:
         postTime = self.timestamp
         editTime = "<h6>Edited: %s</h6>" % self.editTime if self.editTime != "na" else ""
 
+        if usrHandler.current.is_admin:
+            postIDt = "<h6>%i</h6>" % self.id
+        else:
+            postIDt = ""
+
         message = self.message if srcUsr.ban_level < 2 else "<b>THIS USER HAS BEEN EXCOMMUNICATED</b>"
 
         postID = self.id
 
-        if curUsr.ban_level == 0:
-            button1 = "<button type=\"submit\" formaction=\"/replyPost\" class=\"btn btn-success\" style=\"border-top-left-radius: 0px;\">Reply</button>"
+        if usrHandler.current.ban_level == 0:
+            button1 = "<button type=\"submit\" formaction=\"/replyPost\" class=\"btn btn-success\" style=\"border-top-left-radius: 0px\;\">Reply</button>"
         else:
-            button1 = "<button type=\"submit\" formaction=\"/reprimand\" class=\"btn btn-danger\" style=\"border-top-left-radius: 0px;\">XXX</button>"
+            button1 = "<button type=\"submit\" formaction=\"/reprimand\" class=\"btn btn-danger\" style=\"border-top-left-radius: 0px\;\">XXX</button>"
 
-        if curUsr.equals(srcUsr):
+        if usrHandler.current.equals(srcUsr):
             button2 = "<button type=\"submit\" formaction=\"/editPost\" class=\"btn btn-warning\">Edit</button>"
         else:
             button2 = ""
 
-        if curUsr.equals(srcUsr) or curUsr.isAdmin:
+        if usrHandler.current.equals(srcUsr) or usrHandler.current.is_admin:
             button3 = "<button type=\"submit\" formaction=\"/deletePost\" class=\"btn btn-danger\">Delete</button>"
         else:
             button3 = ""
@@ -83,11 +94,12 @@ class Post:
                 <h6>%s</h6>
             	<h6>%s</h6>
                 %s
+                %s
             </div>
 
             <div class="col-lg" style="
                     padding-top: 5px;
-                    padding-bottom: 5px;">
+                    padding-bottom: 5px;word-wrap: break-word;">
                 <p>%s</p>
             </div>
 
@@ -95,7 +107,7 @@ class Post:
                 <form action="/replyPost" method="post">
                     <input type="hidden" name="msgID" value="%s">
 
-                    <div class="btn-group-vertical" style="width: 100%;">
+                    <div class="btn-group-vertical" style="width: 100%%;">
                         %s
 
                         %s
@@ -104,4 +116,4 @@ class Post:
                     </div>
                 </form>
             </div>
-        </div>""" % (bgCol,margin,txtCol,senderName,senderSplash,postTime,editTime,message,postID,button1,button2,button3)
+        </div>""" % (bgCol,margin,txtCol,senderName,senderSplash,postTime,editTime,postIDt,message,postID,button1,button2,button3)

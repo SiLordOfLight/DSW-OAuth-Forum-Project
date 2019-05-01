@@ -16,7 +16,13 @@ body {
     border-radius: 10px;
 }
 
-#content {
-     margin-left: 20px;
-	 margin-right: 20px;
+.memePage {
+    background-image: url("RemorsefulVader.jpg");
 }
+
+#content {
+	 margin-right: 20px;
+     margin-left: 20px;
+}
+
+

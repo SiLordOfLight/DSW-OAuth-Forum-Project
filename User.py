@@ -21,17 +21,21 @@ class User:
         newU.post_count = input['post_count']
         newU.splash = input['splash']
         newU.hard_splash = input['hard_splash']
+        newU.id = input['_id']
 
         return newU
 
     def toJSON(self):
-        return {'name':self.name, 'is_admin':self.is_admin, 'ban_level':self.ban_level, 'post_count':self.post_count, 'splash':self.splash, 'hard_splash':self.hard_splash}
+        return {'name':self.name, 'is_admin':self.is_admin, 'ban_level':self.ban_level, 'post_count':self.post_count, 'splash':self.splash, 'hard_splash':self.hard_splash, '_id':self.id}
 
     def equals(self, other):
         return self.id == other.id
 
     def ban(self):
         self.ban_level += 1
+
+    def rep(self):
+        return str(self.toJSON())
 
     def posted(self):
         self.post_count += 1
@@ -48,6 +52,6 @@ class User:
     def recalculateSplash(self):
         if self.hard_splash: return
 
-        for k,v in splashes.items():
+        for k,v in User.splashes.items():
             if self.post_count > k:
                 self.splash = v

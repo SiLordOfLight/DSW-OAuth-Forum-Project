@@ -1,12 +1,15 @@
 from flask import Flask, redirect, url_for, session, request, jsonify, Markup
 from flask_oauthlib.client import OAuth
-from flask import render_template
+from flask import render_template, flash
 import myEncode as me
+from UserHandler import UserHandler
+from PostHandler import PostHandler
+import pymongo
 
 import pprint
 import os
 import json
-import datetime
+import datetime as dt
 
 app = Flask(__name__)
 
@@ -14,9 +17,19 @@ app.debug = True #Change this to False for production
 
 app.secret_key = os.environ['SECRET_KEY'] #used to sign session cookies
 oauth = OAuth(app)
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+# os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-admins = os.environ['admins']
+url = 'mongodb://{}:{}@{}/{}'.format(
+    os.environ["MONGO_USERNAME"],
+    os.environ["MONGO_PASSWORD"],
+    os.environ["MONGO_HOST"],
+    os.environ["MONGO_DBNAME"])
+
+client = pymongo.MongoClient(os.environ["MONGO_HOST"])
+db = client[os.environ["MONGO_DBNAME"]]
+posts_collection = db['posts']
+users_collection = db['users']
+data_collection = db['other_data']
 
 #Set up GitHub as OAuth provider
 github = oauth.remote_app(
@@ -31,104 +44,148 @@ github = oauth.remote_app(
     authorize_url='https://github.com/login/oauth/authorize' #URL for github's OAuth login
 )
 
-#use a JSON file to store the past posts.  A global list variable doesn't work when handling multiple requests coming in and being handled on different threads
-#Create and set a global variable for the name of you JSON file here.  The file will be created on Heroku, so you don't need to make it in GitHub
-
 def require_login():
     if "user_data" not in session:
         return True
     return False
 
-def get_post(id, posts):
-    for p in posts:
-        # print(type(p['id']))
-        if p['id'] == int(id): return p
-
-    return None
-
-def get_children(parentID, posts):
-    out = []
-
-    for p in posts:
-        if 'parents' not in p: continue
-        if int(parentID) in p['parents']:
-            out.append(p)
-
-    return out
-
 @app.context_processor
 def inject_logged_in():
     return {"logged_in":('github_token' in session)}
+
+@app.route('/welcome')
+def welcome():
+    if "do_flash" not in session:
+        session["do_flash"] = False
+        session["flash_message"] = ""
+        session["flash_mode"] = ""
+
+    if session["do_flash"]:
+        flash(session["flash_message"],session["flash_mode"])
+        session["do_flash"] = False
+        session["flash_message"] = ""
+        session["flash_mode"] = ""
+
+    return render_template('home.html', posts=renderedPosts, reply_id='x', edit_id="x")
 
 @app.route('/')
 def home():
     if require_login(): return redirect(url_for(".login"))
 
-    session["user_type"] = "admin" if session['user_data']['login'] in admins else "regular"
+    if "echoCMDS" not in session:
+        session["echoCMDS"] = True
 
-    warned = False
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
-    if user_banned(session['user_data']['login']) == "B":
-        redirect("https://answers.yahoo.com/question/index?qid=20190217173954AAszYW0")
+    user_handler.login(session["user_data"]["login"])
 
-    with open("static/posts.json") as inFile:
-        posts = json.load(inFile)
+    session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
 
-    del posts[0]
-    # print(posts)
+    if user_handler.current.ban_level >= 2:
+        print("GTFO You Stupid Satan")
+        return redirect(url_for(".meme"))
 
-    return render_template('home.html', posts=posts, reply_id='x', edit_id="x", warned=warned)
+    renderedPosts = post_handler.getRendered(user_handler)
+
+    return render_template('home.html', posts=renderedPosts, reply_id='x', edit_id="x")
+
+@app.route('/newPosts')
+def getNewPosts():
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
+
+    user_handler.login(session["user_data"]["login"])
+
+    renderedPosts = post_handler.getRendered(user_handler)
+
+    return str(renderedPosts)
 
 @app.route('/posted', methods=['POST'])
 def post():
     if require_login(): return redirect(url_for(".login"))
 
-    with open("static/posts.json") as inFile:
-        posts = json.load(inFile)
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
+
+    user_handler.login(session["user_data"]["login"])
+
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
 
     msg = request.form['message']
-    sender = session["user_data"]["login"]
-    theTime = datetime.datetime.now().strftime("%m/%d %H:%M:%S")
+
+    if str(msg).startswith("#!"):
+        cmds = msg.split(' ')
+
+        if not user_handler.current.is_admin:
+            msg = "$$This noob tried to use an admin command$$"
+
+        elif cmds[1] == "ban":
+            id = int(cmds[2])
+            usr = user_handler.usrFor(id)
+            level = int(cmds[3])
+            usr.ban_level = level
+            msg = "$$Set ban level for %s to %i$$" % (usr.name, level)
+
+        elif cmds[1] == "unban":
+            id = int(cmds[2])
+            usr = user_handler.usrFor(id)
+            usr.ban_level = 0
+            msg = "$$Unbanned %s (%i)$$" % (usr.name, id)
+
+        elif cmds[1] == "makeadmin":
+            id = int(cmds[2])
+            user_handler.makeAdmin(id)
+            usr = user_handler.usrFor(id)
+            msg = "$$Made %s an Admin$$" % (usr.name)
+
+        elif cmds[1] == "noadmin":
+            id = int(cmds[2])
+            user_handler.unAdmin(id)
+            usr = user_handler.usrFor(id)
+            msg = "$$Revoked Admin privileges from %s$$" % (usr.name)
+
+        elif cmds[1] == "toggleecho":
+            session["echoCMDS"] = not session["echoCMDS"]
+            msg = "$$Toggle command echo$$"
+
+        elif cmds[1] == "clearforum":
+            post_handler.clear()
+            msg = "$$Cleared Forum$$"
+
+        elif cmds[1] == "lookat":
+            if cmds[2] == "post":
+                id = int(cmds[3])
+                post = post_handler.postFor(id)
+                msg = post.rep()
+
+            elif cmds[2] == "user":
+                nm = cmds[3]
+                user = user_handler.usrForName(nm)
+                msg = user.rep()
+
+        if not session["echoCMDS"]:
+            return redirect(url_for(".home"))
+
+    with open("static/badWords.json") as bwFile:
+        rawbw = bwFile.read()
+    decd = me.decode(rawbw)
+    bad_words = json.loads(decd)
+
+    for word in msg.split(" "):
+        if word.lower() in bad_words:
+            msg = "$$This user is a horrible person and shall henceforth be known as \"Spawn of Satan\"$$"
+            user_handler.banCurrent()
 
     if request.form['replyID'] == 'x' and request.form['editID'] == 'x':
-        if user_banned(session['user_data']['login']) == "W":
-            theDict = {"message":msg, "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":True}
-        else:
-            theDict = {"message":msg, "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":False}
-
-        with open("static/badWords.json") as fitfile:
-            raw = fitfile.read()
-            # print(raw)
-            decd = me.decode(raw)
-            # print(decd)
-            bad_words = json.loads(decd)
-
-        for word in msg.split(" "):
-            if word.lower() in bad_words:
-                theDict = {"message":"<<This user is a horrible person and shall henceforth be known as \"Spawn of Satan\">>", "sender":sender, "time":theTime, "id":generateID(sender,theTime), 'level':0, "parents": [], "bad_guy":True}
-                ban_user(sender)
-
-        posts.append(theDict)
+        post_handler.post(msg, user_handler.current)
 
     elif not request.form['editID'] == 'x':
-        oldPost = get_post(request.form['editID'], posts)
-        ind = posts.index(oldPost)
-        oldPost["message"] = msg
-        oldPost["editTime"] = "Edited: \n%s" % theTime
-        posts[ind] = oldPost
+        post_handler.editPost(request.form['editID'], msg)
 
     else:
-        print(request.form['replyID'])
-        parent = get_post(request.form['replyID'],posts)
-        other_parents = parent['parents']
-        other_parents.append(parent['id'])
-        new_id = generateID(sender, theTime)
-        repDict = {"message":msg, "sender":sender, "time":theTime, "id":new_id, 'level':parent['level']+1, "parents": other_parents, "bad_guy":False}
-        new_index = posts.index(parent) + len(get_children(parent['id'],posts))
-        posts.insert(new_index,repDict)
-
-    with open("static/posts.json", 'w') as outFile:
-        json.dump(posts, outFile)
+        post_handler.postReply(msg, user_handler.current, request.form['replyID'])
 
     return redirect(url_for(".home"))
 
@@ -136,23 +193,15 @@ def post():
 def deletePost():
     if require_login(): return redirect(url_for(".login"))
 
-    with open("static/posts.json") as inFile:
-        posts = json.load(inFile)
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
-    del posts[0]
+    user_handler.login(session["user_data"]["login"])
 
-    msg = request.form['msgID']
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
 
-    post = get_post(msg, posts)
-    posts.remove(post)
-
-    for p in get_children(msg, posts):
-        posts.remove(p)
-
-    posts.insert(0, {"is_test":True, "id":0})
-
-    with open("static/posts.json", 'w') as outFile:
-        json.dump(posts, outFile)
+    post_handler.deletePost(request.form['msgID'])
 
     return redirect(url_for(".home"))
 
@@ -160,36 +209,57 @@ def deletePost():
 def editPost():
     if require_login(): return redirect(url_for(".login"))
 
-    with open("static/posts.json") as inFile:
-        posts = json.load(inFile)
+    msgID = request.form['msgID']
 
-    msg = request.form['msgID']
-    message = get_post(msg, posts)["message"]
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
-    del posts[0]
+    user_handler.login(session["user_data"]["login"])
 
-    return render_template('home.html', posts=posts, edit_id=msg, reply_id='x', message=message)
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
+
+    posto = post_handler.postFor(msgID)
+    if posto not in post_handler.posts:
+        return redirect(url_for(".home"))
+
+    message = posto.message
+    renderedPosts = post_handler.getRendered(user_handler)
+
+    session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
+
+    return render_template('home.html', posts=renderedPosts, edit_id=msgID, reply_id='x', message=message)
 
 @app.route('/replyPost', methods=['POST'])
 def replyPost():
     if require_login(): return redirect(url_for(".login"))
 
-    with open("static/posts.json") as inFile:
-        posts = json.load(inFile)
+    post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
 
-    del posts[0]
+    user_handler.login(session["user_data"]["login"])
 
-    return render_template('home.html', posts=posts, reply_id=request.form['msgID'], edit_id='x')
+    if user_handler.current.ban_level >= 2:
+        return redirect(url_for(".home"))
+
+    renderedPosts = post_handler.getRendered(user_handler)
+
+    session['user_type'] = 'admin' if user_handler.current.is_admin else 'reg'
+
+    return render_template('home.html', posts=renderedPosts, reply_id=request.form['msgID'], edit_id='x')
 
 #redirect to GitHub's OAuth page and confirm callback URL
 @app.route('/login')
 def login():
-    return github.authorize(callback=url_for('authorized', _external=True, _scheme='http')) #callback URL must match the pre-configured callback URL
+    return github.authorize(callback=url_for('authorized', _external=True, _scheme='https')) #callback URL must match the pre-configured callback URL
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return render_template('message.html', message='You were logged out')
+    session["do_flash"] = True
+    session["flash_message"] = "You were logged out"
+    session["flash_mode"] = "warning"
+    return redirect(url_for(".welcome"))
 
 @app.route('/login/authorized')
 def authorized():
@@ -197,7 +267,10 @@ def authorized():
     if resp is None:
         session.clear()
         message = 'Access denied: reason=' + request.args['error'] + ' error=' + request.args['error_description'] + ' full=' + pprint.pformat(request.args)
-        return render_template('message.html', message=message)
+        session["do_flash"] = True
+        session["flash_message"] = message
+        session["flash_mode"] = "warning"
+        return redirect(url_for(".welcome"))
     else:
         try:
             session['github_token'] = (resp['access_token'], '') #save the token to prove that the user logged in
@@ -207,37 +280,33 @@ def authorized():
             session.clear()
             print(inst)
             message='Unable to login, please try again.  '
-            return render_template('message.html', message=message)
+            session["do_flash"] = True
+            session["flash_message"] = message
+            session["flash_mode"] = "danger"
+            return redirect(url_for(".welcome"))
+
+    # post_handler = PostHandler(posts_collection)
+    user_handler = UserHandler(users_collection)
+
+    if not user_handler.has(session["user_data"]["login"]):
+        user_handler.newUsr(session["user_data"]["login"])
+    else:
+        user_handler.login(session["user_data"]["login"])
+
     return redirect(url_for(".home"))
 
-#the tokengetter is automatically called to check who is logged in.
+@app.route('/reprimand', methods=['GET','POST'])
+def reprimand():
+    return render_template("meme.html")
+
+@app.route('/meme')
+def meme():
+    return render_template("meme.html")
+
 @github.tokengetter
 def get_github_oauth_token():
     return session.get('github_token')
 
-def user_banned(user):
-    with open("static/banned.json") as banFile:
-        banned = json.load(banFile)
-
-    for ban in banned:
-        if ban["username"] == user and ban["ban-level"] == 2: return "B"
-        elif ban["username"] == user and ban["ban-level"] == 1: return "W"
-
-    return "A"
-
-def ban_user(user):
-    with open("static/banned.json") as banFile:
-        banned = json.load(banFile)
-
-    for ban in banned:
-        if ban["username"] == user:
-            ban["ban-level"] = 2
-            return
-
-    banned.append({"username":user, "ban-level":1, "ban-time":datetime.datetime.now().strftime("%m/%d %H:%M:%S")})
-
-    with open("static/banned.json", 'w') as banFile2:
-        json.dump(banned,banFile2)
 
 if __name__ == '__main__':
     app.run(debug=True, host="localhost", port=5000)
